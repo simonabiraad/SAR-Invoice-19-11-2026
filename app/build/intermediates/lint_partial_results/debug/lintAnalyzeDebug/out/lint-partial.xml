@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<incidents format="6" by="lint 8.13.2" type="partial_results">
+    <map id="UnsafeIntentLaunch">
+            <map id="unprotected">
+                <entry
+                    name="com.sarinvoice.app.MainActivity"
+                    boolean="true"/>
+            </map>
+    </map>
+    <map id="UnusedResources">
+        <location id="R.color.neon_blue"
+            file="${:app*debug*MAIN*sourceProvider*0*resDir*0}/values/colors.xml"
+            line="1"
+            column="61"
+            startOffset="60"
+            endLine="1"
+            endColumn="77"
+            endOffset="76"/>
+        <entry
+            name="model"
+            string="color[neon_black(U),neon_blue(D)],drawable[ic_launcher_foreground(U)],mipmap[ic_launcher(U)],string[app_name(U)],style[Theme_SarInvoice(U)],xml[file_paths(U)];3^0^2,5^0;;;"/>
+    </map>
+
+</incidents>
