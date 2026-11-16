@@ -50,7 +50,9 @@ fun sar(d: Double) = "SAR " + String.format(Locale.US, "%,.2f", d)
 private fun <T> JSONArray.mapObj(f: (JSONObject) -> T) = (0 until length()).map { f(getJSONObject(it)) }
 
 class Store(ctx: Context) {
-    private val file = File(ctx.filesDir, "data.json")
+    private val auth = AuthManager(ctx)
+    private val email = auth.getCurrentUserEmail() ?: "default"
+    private val file = File(ctx.filesDir, "data_${email.hashCode()}.json")
 
     fun load(): Db {
         val empty = Db(Business("My Company", "", 15.0), emptyList(), emptyList(), emptyList(), emptyList(), emptyList(), emptyList())

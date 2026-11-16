@@ -1,7 +1,9 @@
 package com.sarinvoice.app
 
+import android.content.Intent
 import android.graphics.Color as AColor
 import android.os.Bundle
+import kotlinx.coroutines.launch
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -58,6 +60,11 @@ private data class Tab(val route: String, val label: String, val icon: ImageVect
 @Composable
 fun App(vm: AppVM, dark: Boolean) {
     val nav = rememberNavController()
+    val ctx = LocalContext.current
+    val drawerState = rememberDrawerState(DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val auth = remember { AuthManager(ctx) }
+
     val tabs = listOf(
         Tab("dashboard", "Home", Icons.Default.Dashboard),
         Tab("invoices", "Invoices", Icons.Default.Receipt),
@@ -66,56 +73,169 @@ fun App(vm: AppVM, dark: Boolean) {
         Tab("settings", "Settings", Icons.Default.Settings)
     )
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
-    Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        topBar = {
-            TopAppBar(
-                title = { Text("SAR Invoice", fontWeight = FontWeight.Bold) },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.primary,
-                    actionIconContentColor = MaterialTheme.colorScheme.primary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.primary
-                ),
-                navigationIcon = {
-                    if (route != null && tabs.none { it.route == route })
-                        IconButton({ nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
-                },
-                actions = {
-                    IconButton({ vm.setDark(!dark) }) {
-                        Icon(if (dark) Icons.Default.LightMode else Icons.Default.DarkMode, "Toggle Dark Mode")
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet(
+                drawerContainerColor = MaterialTheme.colorScheme.surface,
+                drawerContentColor = MaterialTheme.colorScheme.onSurface
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .padding(24.dp)
+                ) {
+                    Column {
+                        Icon(Icons.Default.AccountCircle, null, modifier = Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(8.dp))
+                        Text(auth.getCurrentUserName(), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(auth.getCurrentUserEmail() ?: "sar.developer2026@gmail.com", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-            )
-        },
-        bottomBar = {
-            if (tabs.any { it.route == route }) NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
-                tabs.forEach { t ->
-                    NavigationBarItem(
-                        selected = route == t.route,
-                        onClick = { nav.navigate(t.route) { popUpTo("dashboard"); launchSingleTop = true } },
-                        icon = { Icon(t.icon, t.label) }, label = { Text(t.label, maxLines = 1) },
-                        colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            selectedTextColor = MaterialTheme.colorScheme.primary,
-                            indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    )
-                }
+                HorizontalDivider()
+                val drawerItemColors = NavigationDrawerItemDefaults.colors(
+                    selectedContainerColor = Color(0xFF0B3A66),
+                    unselectedContainerColor = Color.Transparent,
+                    selectedTextColor = Color(0xFF00B8FF),
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurface,
+                    selectedIconColor = Color(0xFF00B8FF),
+                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Home") },
+                    selected = route == "dashboard",
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("dashboard") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.Home, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Invoices") },
+                    selected = route == "invoices",
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("invoices") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.Receipt, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Customers") },
+                    selected = route == "customers",
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("customers") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.People, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Items") },
+                    selected = route == "items",
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("items") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.Inventory2, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Banking") },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("invoices") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.AccountBalance, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Sales") },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("invoices") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.ShoppingCart, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Purchases") },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("record_expense") { launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.ShoppingBag, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Time Tracking") },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("dashboard") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.Timer, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Accountant") },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("settings") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.Person, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Documents") },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("invoices") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.Folder, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Reports") },
+                    selected = false,
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("dashboard") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.BarChart, null) },
+                    colors = drawerItemColors
+                )
+                NavigationDrawerItem(
+                    label = { Text("Settings") },
+                    selected = route == "settings",
+                    onClick = { scope.launch { drawerState.close() }; nav.navigate("settings") { popUpTo("dashboard"); launchSingleTop = true } },
+                    icon = { Icon(Icons.Default.Settings, null) },
+                    colors = drawerItemColors
+                )
+                HorizontalDivider()
+                NavigationDrawerItem(
+                    label = { Text("Create a New Account") },
+                    selected = false,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        ctx.startActivity(Intent(ctx, RegisterActivity::class.java))
+                    },
+                    icon = { Icon(Icons.Default.PersonAdd, null) },
+                    colors = drawerItemColors
+                )
             }
         }
-    ) { pad ->
-        NavHost(nav, "dashboard", Modifier.padding(pad)) {
-            composable("dashboard") { Dashboard(vm, nav) }
-            composable("invoices") { Invoices(vm, nav) }
-            composable("customers") { Customers(vm) }
-            composable("items") { Items(vm) }
-            composable("settings") { Settings(vm, dark) }
-            composable("new") { NewInvoice(vm, nav) }
-            composable("inv/{id}") { Detail(vm, nav, it.arguments?.getString("id") ?: "") }
-            composable("record_expense") { RecordExpenseScreen(vm, nav) }
+    ) {
+        Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                TopAppBar(
+                    title = { Text("SAR Invoice", fontWeight = FontWeight.Bold) },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        titleContentColor = MaterialTheme.colorScheme.primary,
+                        actionIconContentColor = MaterialTheme.colorScheme.primary,
+                        navigationIconContentColor = MaterialTheme.colorScheme.primary
+                    ),
+                    navigationIcon = {
+                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                            Icon(Icons.Default.Menu, "Open Menu")
+                        }
+                    },
+                    actions = {
+                        IconButton({ vm.setDark(!dark) }) {
+                            Icon(if (dark) Icons.Default.LightMode else Icons.Default.DarkMode, "Toggle Dark Mode")
+                        }
+                    }
+                )
+            }
+        ) { pad ->
+            NavHost(nav, "dashboard", Modifier.padding(pad)) {
+                composable("dashboard") { Dashboard(vm, nav) }
+                composable("invoices") { Invoices(vm, nav) }
+                composable("customers") { Customers(vm) }
+                composable("items") { Items(vm) }
+                composable("settings") { Settings(vm, dark) }
+                composable("new") { NewInvoice(vm, nav) }
+                composable("inv/{id}") { Detail(vm, nav, it.arguments?.getString("id") ?: "") }
+                composable("record_expense") { RecordExpenseScreen(vm, nav) }
+            }
         }
     }
 }
@@ -139,6 +259,134 @@ fun InvoiceRow(i: Invoice, onClick: () -> Unit) = Panel(onClick = onClick) {
                 if (i.paid) "PAID" else "UNPAID", style = MaterialTheme.typography.labelMedium,
                 color = if (i.paid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )
+        }
+    }
+}
+
+@Composable
+fun CashFlowSection(vm: AppVM, nav: NavHostController, onOpenFiscal: () -> Unit, onOpenNewBill: () -> Unit) {
+    val inv = vm.db.invoices
+    val bills = vm.db.bills
+    val expenses = vm.db.expenses
+
+    val openingBal = 0.0
+    val incoming = inv.filter { it.paid }.sumOf { it.total }
+    val outgoing = expenses.sumOf { it.amount } + bills.filter { it.paid }.sumOf { it.amount }
+    val endingBal = openingBal + incoming - outgoing
+
+    Panel {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Default.ShowChart, null, tint = MaterialTheme.colorScheme.primary)
+                Text("Cash Flow", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            Surface(
+                onClick = onOpenFiscal,
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+            ) {
+                Row(
+                    Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(vm.selectedFiscalPeriod, style = MaterialTheme.typography.bodySmall)
+                    Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("Cash as on 01 Jan 2026", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            Text(sar(openingBal), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("+ Incoming", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF4CAF50), fontWeight = FontWeight.Medium)
+            Text(sar(incoming), style = MaterialTheme.typography.bodyMedium, color = Color(0xFF4CAF50), fontWeight = FontWeight.Medium)
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("- Outgoing", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
+            Text(sar(outgoing), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Medium)
+        }
+        Spacer(Modifier.height(8.dp))
+        HorizontalDivider(Modifier.padding(vertical = 4.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text("= Cash as on 31 Dec 2026", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            Text(sar(endingBal), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+        }
+
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = { nav.navigate("new") },
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Add Invoice")
+            }
+            OutlinedButton(onClick = onOpenNewBill) {
+                Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(4.dp))
+                Text("Add Bill")
+            }
+        }
+    }
+}
+
+@Composable
+fun IncomeAndExpenseSection(vm: AppVM) {
+    var accrual by remember { mutableStateOf(true) }
+    val inv = vm.db.invoices
+    val bills = vm.db.bills
+    val expenses = vm.db.expenses
+
+    val income = if (accrual) inv.sumOf { it.total } else inv.filter { it.paid }.sumOf { it.total }
+    val expense = if (accrual) expenses.sumOf { it.amount } + bills.sumOf { it.amount } else expenses.sumOf { it.amount } + bills.filter { it.paid }.sumOf { it.amount }
+
+    Panel {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Icon(Icons.Default.PieChart, null, tint = MaterialTheme.colorScheme.primary)
+                Text("Income and Expense", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
+            ) {
+                Text(vm.selectedFiscalPeriod, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = accrual,
+                onClick = { accrual = true },
+                label = { Text("Accrual") }
+            )
+            FilterChip(
+                selected = !accrual,
+                onClick = { accrual = false },
+                label = { Text("Cash") }
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Income", color = Color(0xFF2196F3), fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(sar(income), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFF2196F3))
+            }
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("Expense", color = Color(0xFFFF9800), fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+                Text(sar(expense), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFFF9800))
+            }
         }
     }
 }
@@ -207,48 +455,12 @@ fun Dashboard(vm: AppVM, nav: NavHostController) {
 
                     // Cash Flow Section
                     item {
-                        Panel {
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Icon(Icons.Default.ShowChart, null, tint = MaterialTheme.colorScheme.primary)
-                                    Text("Cash Flow", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                }
-                                Surface(
-                                    onClick = { showFiscalSheet = true },
-                                    shape = RoundedCornerShape(8.dp),
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.5f))
-                                ) {
-                                    Row(
-                                        Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                    ) {
-                                        Text(vm.selectedFiscalPeriod, style = MaterialTheme.typography.bodySmall)
-                                        Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(16.dp))
-                                    }
-                                }
-                            }
-                            Spacer(Modifier.height(8.dp))
-                            Text("Track your Cash Flow", fontWeight = FontWeight.Bold)
-                            Text("Track the amount of money moving in and out of your business", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.height(12.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(
-                                    onClick = { nav.navigate("new") },
-                                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                                ) {
-                                    Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Add Invoice")
-                                }
-                                OutlinedButton(onClick = { showNewBill = true }) {
-                                    Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text("Add Bill")
-                                }
-                            }
-                        }
+                        CashFlowSection(vm, nav, { showFiscalSheet = true }, { showNewBill = true })
+                    }
+
+                    // Income and Expense Section
+                    item {
+                        IncomeAndExpenseSection(vm)
                     }
 
                     // Project Summary & Timer Section
@@ -931,6 +1143,7 @@ fun Fab(modifier: Modifier, onClick: () -> Unit) = FloatingActionButton(
 
 @Composable
 fun Settings(vm: AppVM, dark: Boolean) {
+    val ctx = LocalContext.current
     val b = vm.db.business
     var name by remember(b) { mutableStateOf(b.name) }
     var vat by remember(b) { mutableStateOf(b.vatNo) }
@@ -943,6 +1156,13 @@ fun Settings(vm: AppVM, dark: Boolean) {
                     Text(if (dark) "ON · Black & Blue Neon" else "OFF · Light", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Switch(dark, { vm.setDark(it) })
+            }
+        }
+        Panel {
+            Text("Account", fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Button(onClick = { ctx.startActivity(android.content.Intent(ctx, RegisterActivity::class.java)) }, Modifier.fillMaxWidth()) {
+                Text("Create a New Account / Add Account")
             }
         }
         Panel {

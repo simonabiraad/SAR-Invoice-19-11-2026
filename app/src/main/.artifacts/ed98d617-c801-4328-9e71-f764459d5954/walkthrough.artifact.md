@@ -1,28 +1,18 @@
-# Walkthrough - SAR Invoice Dashboard Feature Parity
+# Walkthrough - Cash Flow & Income/Expense Integration
 
-Successfully integrated all features, sections, and options from the reference software into the SAR Invoice Dashboard (Home tab).
+Successfully added the **Income and Expense** section (matching Reference Image 2) alongside the **Cash Flow** section on the Dashboard, fully connected to the application's invoice, bill, and expense systems.
 
 ## Changes Made
 
-### 1. Data Models & Storage (`Data.kt`)
-- Added `Bill`, `Expense`, and `TimeLog` data classes.
-- Updated `Db` and `Store` JSON persistence to load and save bills, expenses, and time logs.
+### 1. Income and Expense Section (`MainActivity.kt`)
+- Created `IncomeAndExpenseSection` composable featuring:
+  - **Accrual / Cash Toggle**: Allows switching between Accrual basis (counting all invoices and bills/expenses) and Cash basis (counting only paid invoices and paid bills/expenses).
+  - **Automatic Totals**: Computes and displays total Income and Expense in real time.
+  - **Fiscal Period Header**: Displays the selected fiscal period badge.
 
-### 2. ViewModel Logic (`AppVM.kt`)
-- Added methods and state for creating/managing bills, recording expenses, logging time, and running the live project timer (`startTimer`, `stopAndLogTimer`, `pauseTimer`).
+### 2. Cash Flow & Invoice Integration (`MainActivity.kt`)
+- Cash Flow table automatically synchronizes with issued invoices (Incoming from paid invoices) and outgoing expenses/bills.
+- Real-time updates occur instantly whenever transactions are added, updated, or deleted without double-counting.
 
-### 3. Dashboard UI & Features (`MainActivity.kt`)
-- **Top Sub-Tabs**: Added **Dashboard**, **Announcements**, and **Help** tabs right below the app bar.
-- **Quick Create Section**: Added interactive buttons for **New Customer**, **New Invoice**, **New Bill**, and **New Expense** with fully functional creation dialogs.
-- **Cash Flow Section**: Added period selector ("This Fiscal Year"), description card, and action buttons (`+ Add Invoice`, `+ Add Bill`).
-- **Project Summary & Timer Section**:
-  - Live project timer widget showing elapsed time (`00:00`), `Start Timer` / `Stop & Log`, and `Log Time` dialog.
-  - Unbilled Hours and Unbilled Expenses summary cards.
-- **Top Expenses Section**: Added expense breakdown, period selector, and `Record Expense` action.
-- **Announcements & Help Tabs**: Fully implemented informational tabs for updates and support.
-
-## Verification Results
-
-### Automated Tests
-- Build test: `app:assembleDebug` completed successfully.
-- Unit tests: `app:testDebugUnitTest` passed successfully.
+### 3. Verification
+- Rebuilt the app (`app:assembleDebug`) and ran unit tests (`app:testDebugUnitTest`), confirming a 100% successful build with zero errors.

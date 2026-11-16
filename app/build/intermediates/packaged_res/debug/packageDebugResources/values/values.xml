@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <color name="neon_black">#FF000000</color>
-    <color name="neon_blue">#FF00B8FF</color>
-    <string name="app_name">SAR Invoice</string>
-    <style name="Theme.SarInvoice" parent="@android:style/Theme.DeviceDefault.NoActionBar">
-        <item name="android:windowBackground">@color/neon_black</item>
-    </style>
-</resources>

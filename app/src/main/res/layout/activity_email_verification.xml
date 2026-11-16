@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/neon_black"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Verify Your Email"
+        android:textColor="@color/neon_blue"
+        android:textSize="26sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/txtInfo"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="We have sent a 6-digit verification code to your email address. Enter the code below (Test OTP: 123456)."
+        android:textColor="#8FD8FF"
+        android:textSize="14sp"
+        android:gravity="center"
+        android:layout_marginBottom="24dp" />
+
+    <EditText
+        android:id="@+id/etOtpCode"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Enter 6-digit Code"
+        android:inputType="number"
+        android:maxLength="6"
+        android:textColor="@android:color/white"
+        android:textColorHint="#8FD8FF"
+        android:gravity="center"
+        android:textSize="20sp"
+        android:layout_marginBottom="24dp" />
+
+    <Button
+        android:id="@+id/btnVerify"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Verify Code"
+        android:layout_marginBottom="16dp" />
+
+    <Button
+        android:id="@+id/btnResend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Resend Code"
+        android:backgroundTint="#05080F"
+        android:textColor="@color/neon_blue" />
+</LinearLayout>

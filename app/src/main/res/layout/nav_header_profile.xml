@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="170dp"
+    android:background="#05080F"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:gravity="bottom">
+
+    <TextView
+        android:id="@+id/headerTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="SAR Invoice"
+        android:textColor="@color/neon_blue"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/headerEmail"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="sar.developer2026@gmail.com"
+        android:textColor="#8FD8FF"
+        android:textSize="14sp" />
+</LinearLayout>
