@@ -4,14 +4,18 @@ import android.content.Intent
 import android.graphics.Color as AColor
 import android.os.Bundle
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -307,6 +311,11 @@ fun CashFlowSection(vm: AppVM, nav: NavHostController, onOpenFiscal: () -> Unit,
         }
         Spacer(Modifier.height(12.dp))
 
+        // Graphical Chart Visualization matching Reference Image 1
+        CashFlowChart(vm)
+
+        Spacer(Modifier.height(12.dp))
+
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text("Cash as on 01 Jan 2026", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
             Text(sar(openingBal), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
@@ -384,6 +393,11 @@ fun IncomeAndExpenseSection(vm: AppVM) {
                 label = { Text("Cash") }
             )
         }
+        Spacer(Modifier.height(12.dp))
+
+        // Graphical Chart Visualization matching Reference Image 2
+        IncomeExpenseChart(vm, accrual)
+
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -395,6 +409,150 @@ fun IncomeAndExpenseSection(vm: AppVM) {
                 Text("Expense", color = Color(0xFFFF9800), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(4.dp))
                 Text(sar(expense), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = Color(0xFFFF9800))
+            }
+        }
+    }
+}
+
+@Composable
+fun CashFlowChart(vm: AppVM) {
+    val inv = vm.db.invoices.filter { it.paid }
+    val bills = vm.db.bills.filter { it.paid }
+    val expenses = vm.db.expenses
+
+    val monthlyNet = FloatArray(12) { 0f }
+    inv.forEach {
+        try {
+            val m = LocalDate.parse(it.date).monthValue - 1
+            if (m in 0..11) monthlyNet[m] += it.total.toFloat()
+        } catch (_: Exception) {}
+    }
+    bills.forEach {
+        try {
+            val m = LocalDate.parse(it.date).monthValue - 1
+            if (m in 0..11) monthlyNet[m] -= it.amount.toFloat()
+        } catch (_: Exception) {}
+    }
+    expenses.forEach {
+        try {
+            val m = LocalDate.parse(it.date).monthValue - 1
+            if (m in 0..11) monthlyNet[m] -= it.amount.toFloat()
+        } catch (_: Exception) {}
+    }
+
+    val yLabels = listOf("1.208", "1", "800.3", "600.3", "400.3", "200.3", "0")
+    val months = listOf("Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    val primaryColor = MaterialTheme.colorScheme.primary
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.width(44.dp).height(150.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                yLabels.forEach { label ->
+                    Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            Box(Modifier.weight(1f).height(150.dp)) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val width = size.width
+                    val height = size.height
+                    val stepX = width / 13f
+
+                    val gridColor = Color.Gray.copy(alpha = 0.2f)
+                    for (i in 0..6) {
+                        val y = height * i / 6f
+                        drawLine(gridColor, Offset(0f, y), Offset(width, y), strokeWidth = 1.dp.toPx())
+                    }
+
+                    var prevX = 0f
+                    var prevY = height / 2f
+                    monthlyNet.forEachIndexed { idx, net ->
+                        val x = stepX * (idx + 1)
+                        val maxVal = 1208f
+                        val y = height - (net.coerceIn(0f, maxVal) / maxVal) * height
+                        if (idx > 0) {
+                            drawLine(primaryColor, Offset(prevX, prevY), Offset(x, y), strokeWidth = 2.dp.toPx())
+                        }
+                        drawCircle(primaryColor, radius = 3.dp.toPx(), center = Offset(x, y))
+                        prevX = x
+                        prevY = y
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(
+            Modifier.fillMaxWidth().padding(start = 44.dp),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            months.forEach { m ->
+                Text(m, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+fun IncomeExpenseChart(vm: AppVM, accrual: Boolean) {
+    val inv = if (accrual) vm.db.invoices else vm.db.invoices.filter { it.paid }
+    val bills = if (accrual) vm.db.bills else vm.db.bills.filter { it.paid }
+    val expenses = vm.db.expenses
+
+    val monthlyIncome = FloatArray(12) { 0f }
+    val monthlyExpense = FloatArray(12) { 0f }
+
+    inv.forEach {
+        try {
+            val m = LocalDate.parse(it.date).monthValue - 1
+            if (m in 0..11) monthlyIncome[m] += it.total.toFloat()
+        } catch (_: Exception) {}
+    }
+    bills.forEach {
+        try {
+            val m = LocalDate.parse(it.date).monthValue - 1
+            if (m in 0..11) monthlyExpense[m] += it.amount.toFloat()
+        } catch (_: Exception) {}
+    }
+    expenses.forEach {
+        try {
+            val m = LocalDate.parse(it.date).monthValue - 1
+            if (m in 0..11) monthlyExpense[m] += it.amount.toFloat()
+        } catch (_: Exception) {}
+    }
+
+    val months = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    val incomeColor = Color(0xFF2196F3)
+    val expenseColor = Color(0xFFFF9800)
+
+    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+            val width = size.width
+            val height = size.height
+            val stepX = width / 12f
+
+            val gridColor = Color.Gray.copy(alpha = 0.2f)
+            for (i in 0..5) {
+                val y = height * i / 5f
+                drawLine(gridColor, Offset(0f, y), Offset(width, y), strokeWidth = 1.dp.toPx())
+            }
+
+            monthlyIncome.forEachIndexed { idx, inc ->
+                val x = stepX * idx + stepX / 4f
+                val barH = (inc / 5000f).coerceIn(0f, 1f) * height
+                drawRect(incomeColor, topLeft = Offset(x, height - barH), size = Size(stepX / 3f, barH))
+            }
+            monthlyExpense.forEachIndexed { idx, exp ->
+                val x = stepX * idx + stepX / 1.8f
+                val barH = (exp / 5000f).coerceIn(0f, 1f) * height
+                drawRect(expenseColor, topLeft = Offset(x, height - barH), size = Size(stepX / 3f, barH))
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            months.forEach { m ->
+                Text(m, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
