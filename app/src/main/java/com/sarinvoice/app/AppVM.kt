@@ -35,7 +35,27 @@ class AppVM(app: Application) : AndroidViewModel(app) {
     private fun upd(n: Db) { db = n; store.save(n) }
     private fun id() = UUID.randomUUID().toString()
 
-    fun addCustomer(name: String, email: String, phone: String) = upd(db.copy(customers = db.customers + Customer(id(), name, email, phone)))
+    fun addCustomer(
+        name: String,
+        email: String,
+        phone: String,
+        customerType: String = "Business",
+        salutation: String = "",
+        firstName: String = "",
+        lastName: String = "",
+        companyName: String = "",
+        mobile: String = "",
+        currency: String = "SAR",
+        paymentTerms: String = "",
+        enablePortal: Boolean = false,
+        remarks: String = ""
+    ) = upd(
+        db.copy(
+            customers = db.customers + Customer(
+                id(), name, email, phone, customerType, salutation, firstName, lastName, companyName, mobile, currency, paymentTerms, enablePortal, remarks
+            )
+        )
+    )
     fun deleteCustomer(id: String) = upd(db.copy(customers = db.customers.filter { it.id != id }))
     fun addItem(name: String, price: Double) = upd(db.copy(items = db.items + Item(id(), name, price)))
     fun deleteItem(id: String) = upd(db.copy(items = db.items.filter { it.id != id }))

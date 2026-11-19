@@ -6,7 +6,22 @@ import org.json.JSONObject
 import java.io.File
 import java.util.Locale
 
-data class Customer(val id: String, val name: String, val email: String, val phone: String)
+data class Customer(
+    val id: String,
+    val name: String, // Display Name
+    val email: String,
+    val phone: String,
+    val customerType: String = "Business",
+    val salutation: String = "",
+    val firstName: String = "",
+    val lastName: String = "",
+    val companyName: String = "",
+    val mobile: String = "",
+    val currency: String = "SAR",
+    val paymentTerms: String = "",
+    val enablePortal: Boolean = false,
+    val remarks: String = ""
+)
 data class Item(val id: String, val name: String, val price: Double)
 data class Line(val name: String, val qty: Double, val price: Double) { val total get() = qty * price }
 data class Invoice(
@@ -62,7 +77,24 @@ class Store(ctx: Context) {
             val b = o.getJSONObject("biz")
             Db(
                 Business(b.getString("name"), b.getString("vat"), b.getDouble("rate")),
-                o.getJSONArray("customers").mapObj { Customer(it.getString("id"), it.getString("name"), it.getString("email"), it.getString("phone")) },
+                o.getJSONArray("customers").mapObj {
+                    Customer(
+                        it.getString("id"),
+                        it.getString("name"),
+                        it.optString("email", ""),
+                        it.optString("phone", ""),
+                        it.optString("customerType", "Business"),
+                        it.optString("salutation", ""),
+                        it.optString("firstName", ""),
+                        it.optString("lastName", ""),
+                        it.optString("companyName", ""),
+                        it.optString("mobile", ""),
+                        it.optString("currency", "SAR"),
+                        it.optString("paymentTerms", ""),
+                        it.optBoolean("enablePortal", false),
+                        it.optString("remarks", "")
+                    )
+                },
                 o.getJSONArray("items").mapObj { Item(it.getString("id"), it.getString("name"), it.getDouble("price")) },
                 o.getJSONArray("invoices").mapObj { i ->
                     Invoice(
@@ -98,7 +130,23 @@ class Store(ctx: Context) {
     fun save(db: Db) {
         val o = JSONObject()
         o.put("biz", JSONObject().put("name", db.business.name).put("vat", db.business.vatNo).put("rate", db.business.vatRate))
-        o.put("customers", JSONArray(db.customers.map { JSONObject().put("id", it.id).put("name", it.name).put("email", it.email).put("phone", it.phone) }))
+        o.put("customers", JSONArray(db.customers.map { c ->
+            JSONObject()
+                .put("id", c.id)
+                .put("name", c.name)
+                .put("email", c.email)
+                .put("phone", c.phone)
+                .put("customerType", c.customerType)
+                .put("salutation", c.salutation)
+                .put("firstName", c.firstName)
+                .put("lastName", c.lastName)
+                .put("companyName", c.companyName)
+                .put("mobile", c.mobile)
+                .put("currency", c.currency)
+                .put("paymentTerms", c.paymentTerms)
+                .put("enablePortal", c.enablePortal)
+                .put("remarks", c.remarks)
+        }))
         o.put("items", JSONArray(db.items.map { JSONObject().put("id", it.id).put("name", it.name).put("price", it.price) }))
         o.put("invoices", JSONArray(db.invoices.map { i ->
             JSONObject().put("id", i.id).put("number", i.number).put("customer", i.customer).put("date", i.date)

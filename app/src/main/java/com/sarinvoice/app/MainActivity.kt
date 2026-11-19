@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -228,13 +229,21 @@ fun App(vm: AppVM, dark: Boolean) {
         ) { pad ->
             NavHost(nav, "dashboard", Modifier.padding(pad)) {
                 composable("dashboard") { Dashboard(vm, nav) }
-                composable("invoices") { Invoices(vm, nav) }
-                composable("customers") { Customers(vm) }
+                composable(
+                    route = "invoices?filter={filter}",
+                    arguments = listOf(androidx.navigation.navArgument("filter") { defaultValue = "0" })
+                ) { backStackEntry ->
+                    val f = backStackEntry.arguments?.getString("filter")?.toIntOrNull() ?: 0
+                    Invoices(vm, nav, f)
+                }
+                composable("invoices") { Invoices(vm, nav, 0) }
+                composable("customers") { Customers(vm, nav) }
                 composable("items") { Items(vm) }
                 composable("settings") { Settings(vm, dark) }
                 composable("new") { NewInvoice(vm, nav) }
                 composable("inv/{id}") { Detail(vm, nav, it.arguments?.getString("id") ?: "") }
                 composable("record_expense") { RecordExpenseScreen(vm, nav) }
+                composable("new_customer") { NewCustomerScreen(vm, nav) }
             }
         }
     }
@@ -392,12 +401,186 @@ fun IncomeAndExpenseSection(vm: AppVM) {
 }
 
 @Composable
+fun SummaryCardsSection(vm: AppVM, nav: NavHostController, onOpenReceivables: () -> Unit, onOpenPayables: () -> Unit, onOpenOverdueInvoices: () -> Unit, onOpenOverdueBills: () -> Unit) {
+    val inv = vm.db.invoices
+    val bills = vm.db.bills
+
+    val totalReceivables = inv.filter { !it.paid }.sumOf { it.total }
+    val totalPayables = bills.filter { !it.paid }.sumOf { it.amount }
+    val overdueInvoices = inv.count { !it.paid }
+    val overdueBills = bills.count { !it.paid }
+
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Panel(
+            modifier = Modifier.weight(1.5f)
+        ) {
+            Column(modifier = Modifier.clickable(onClick = onOpenReceivables)) {
+                Text("Total Receivables", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(sar(totalReceivables), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Column(modifier = Modifier.clickable(onClick = onOpenPayables)) {
+                Text("Total Payables", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(sar(totalPayables), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Default.ArrowDropDown, null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+                }
+            }
+        }
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Surface(
+                onClick = onOpenOverdueInvoices,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("$overdueInvoices", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                        Text("Overdue Invoices", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            Surface(
+                onClick = onOpenOverdueBills,
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("$overdueBills", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.error)
+                        Text("Overdue Bills", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReceivablesPayablesBottomSheet(vm: AppVM, initialTab: Int, onDismiss: () -> Unit) {
+    var tabIndex by remember { mutableStateOf(initialTab) } // 0: Receivables, 1: Payables
+    val inv = vm.db.invoices
+    val bills = vm.db.bills
+
+    val totalReceivables = inv.filter { !it.paid }.sumOf { it.total }
+    val totalPayables = bills.filter { !it.paid }.sumOf { it.amount }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
+                TextButton(onClick = { tabIndex = 0 }) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("TOTAL RECEIVABLES", fontWeight = FontWeight.Bold, color = if (tabIndex == 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (tabIndex == 0) {
+                            Spacer(Modifier.height(4.dp))
+                            HorizontalDivider(thickness = 3.dp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(120.dp))
+                        }
+                    }
+                }
+                TextButton(onClick = { tabIndex = 1 }) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("TOTAL PAYABLES", fontWeight = FontWeight.Bold, color = if (tabIndex == 1) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (tabIndex == 1) {
+                            Spacer(Modifier.height(4.dp))
+                            HorizontalDivider(thickness = 3.dp, color = MaterialTheme.colorScheme.primary, modifier = Modifier.width(100.dp))
+                        }
+                    }
+                }
+            }
+
+            Panel {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                    Text(if (tabIndex == 0) "Total Receivables" else "Total Payables", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(4.dp))
+                    Text(sar(if (tabIndex == 0) totalReceivables else totalPayables), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Column {
+                        Text("Current", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF2196F3), fontWeight = FontWeight.Bold)
+                        Text(sar(if (tabIndex == 0) totalReceivables else totalPayables), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                    Column(horizontalAlignment = Alignment.End) {
+                        Text("Overdue", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                        Text(sar(0.0), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            Text("Overdue Split by days", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OverdueSplitCard("1–15 Days", sar(0.0), Modifier.weight(1f))
+                    OverdueSplitCard("16–30 Days", sar(0.0), Modifier.weight(1f))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OverdueSplitCard("31–45 Days", sar(0.0), Modifier.weight(1f))
+                    OverdueSplitCard("> 45 Days", sar(0.0), Modifier.weight(1f))
+                }
+            }
+            Spacer(Modifier.height(32.dp))
+        }
+    }
+}
+
+@Composable
+fun OverdueSplitCard(title: String, amount: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+    ) {
+        Column(Modifier.padding(12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            Text(amount, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
 fun Dashboard(vm: AppVM, nav: NavHostController) {
     var selectedTopTab by rememberSaveable { mutableIntStateOf(0) } // 0: Dashboard, 1: Announcements, 2: Help
     var showNewBill by remember { mutableStateOf(false) }
     var showNewCustomer by remember { mutableStateOf(false) }
     var showLogTime by remember { mutableStateOf(false) }
     var showFiscalSheet by remember { mutableStateOf(false) }
+    var showReceivablesSheet by remember { mutableStateOf(false) }
+    var receivablesInitialTab by remember { mutableIntStateOf(0) }
 
     val inv = vm.db.invoices
     val expenses = vm.db.expenses
@@ -434,6 +617,17 @@ fun Dashboard(vm: AppVM, nav: NavHostController) {
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Top Summary Cards (Receivables, Payables, Overdue Invoices & Bills)
+                    item {
+                        SummaryCardsSection(
+                            vm, nav,
+                            onOpenReceivables = { receivablesInitialTab = 0; showReceivablesSheet = true },
+                            onOpenPayables = { receivablesInitialTab = 1; showReceivablesSheet = true },
+                            onOpenOverdueInvoices = { nav.navigate("invoices?filter=2") },
+                            onOpenOverdueBills = { nav.navigate("invoices?filter=2") }
+                        )
+                    }
+
                     // Quick Create Section
                     item {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -445,7 +639,7 @@ fun Dashboard(vm: AppVM, nav: NavHostController) {
                                 Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                QuickActionCard("New\nCustomer", Icons.Default.PersonAdd, Modifier.weight(1f)) { showNewCustomer = true }
+                                QuickActionCard("New\nCustomer", Icons.Default.PersonAdd, Modifier.weight(1f)) { nav.navigate("new_customer") }
                                 QuickActionCard("New\nInvoice", Icons.Default.Receipt, Modifier.weight(1f)) { nav.navigate("new") }
                                 QuickActionCard("New\nBill", Icons.Default.RequestQuote, Modifier.weight(1f)) { showNewBill = true }
                                 QuickActionCard("New\nExpense", Icons.Default.ReceiptLong, Modifier.weight(1f)) { nav.navigate("record_expense") }
@@ -618,6 +812,10 @@ fun Dashboard(vm: AppVM, nav: NavHostController) {
             onSelect = { vm.selectedFiscalPeriod = it },
             onDismiss = { showFiscalSheet = false }
         )
+    }
+
+    if (showReceivablesSheet) {
+        ReceivablesPayablesBottomSheet(vm, receivablesInitialTab) { showReceivablesSheet = false }
     }
 
     // Dialogs
@@ -967,13 +1165,21 @@ private fun formatTimer(sec: Int): String {
 }
 
 @Composable
-fun Invoices(vm: AppVM, nav: NavHostController) {
-    var filter by rememberSaveable { mutableIntStateOf(0) }
-    val list = vm.db.invoices.reversed().filter { filter == 0 || (filter == 1 && !it.paid) || (filter == 2 && it.paid) }
+fun Invoices(vm: AppVM, nav: NavHostController, initialFilter: Int = 0) {
+    var filter by rememberSaveable { mutableIntStateOf(initialFilter) }
+    val list = vm.db.invoices.reversed().filter {
+        when (filter) {
+            0 -> true
+            1 -> !it.paid
+            2 -> !it.paid
+            3 -> it.paid
+            else -> true
+        }
+    }
     Box(Modifier.fillMaxSize()) {
         Column {
             Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("All", "Unpaid", "Paid").forEachIndexed { n, s -> FilterChip(filter == n, { filter = n }, { Text(s) }) }
+                listOf("All", "Unpaid", "Overdue", "Paid").forEachIndexed { n, s -> FilterChip(filter == n, { filter = n }, { Text(s) }) }
             }
             LazyColumn(contentPadding = PaddingValues(16.dp, 4.dp, 16.dp, 88.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(list, key = { it.id }) { InvoiceRow(it) { nav.navigate("inv/${it.id}") } }
@@ -1071,8 +1277,7 @@ fun Detail(vm: AppVM, nav: NavHostController, id: String) {
 }
 
 @Composable
-fun Customers(vm: AppVM) {
-    var show by remember { mutableStateOf(false) }
+fun Customers(vm: AppVM, nav: NavHostController) {
     Box(Modifier.fillMaxSize()) {
         LazyColumn(contentPadding = PaddingValues(16.dp, 16.dp, 16.dp, 88.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             items(vm.db.customers, key = { it.id }) { c ->
@@ -1084,22 +1289,213 @@ fun Customers(vm: AppVM) {
                 }
             }
         }
-        Fab(Modifier.align(Alignment.BottomEnd)) { show = true }
+        Fab(Modifier.align(Alignment.BottomEnd)) { nav.navigate("new_customer") }
     }
-    if (show) {
-        var n by remember { mutableStateOf("") }; var e by remember { mutableStateOf("") }; var p by remember { mutableStateOf("") }
-        AlertDialog(
-            onDismissRequest = { show = false }, title = { Text("New customer") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(n, { n = it }, label = { Text("Name") }, singleLine = true)
-                    OutlinedTextField(e, { e = it }, label = { Text("Email") }, singleLine = true)
-                    OutlinedTextField(p, { p = it }, label = { Text("Phone") }, singleLine = true)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NewCustomerScreen(vm: AppVM, nav: NavHostController) {
+    var customerType by remember { mutableStateOf("Business") }
+    var salutation by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var companyName by remember { mutableStateOf("") }
+    var displayName by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var phonePrefix by remember { mutableStateOf("+961") }
+    var phone by remember { mutableStateOf("") }
+    var mobilePrefix by remember { mutableStateOf("+961") }
+    var mobile by remember { mutableStateOf("") }
+    var currency by remember { mutableStateOf("SAR") }
+    var paymentTerms by remember { mutableStateOf("") }
+    var enablePortal by remember { mutableStateOf(false) }
+    var remarks by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("New Customer", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton({ nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                },
+                actions = {
+                    TextButton(onClick = {
+                        val name = displayName.ifBlank { companyName.ifBlank { "$firstName $lastName".trim() } }
+                        if (name.isNotBlank()) {
+                            vm.addCustomer(
+                                name = name,
+                                email = email,
+                                phone = "$phonePrefix $phone",
+                                customerType = customerType,
+                                salutation = salutation,
+                                firstName = firstName,
+                                lastName = lastName,
+                                companyName = companyName,
+                                mobile = "$mobilePrefix $mobile",
+                                currency = currency,
+                                paymentTerms = paymentTerms,
+                                enablePortal = enablePortal,
+                                remarks = remarks
+                            )
+                            nav.popBackStack()
+                        }
+                    }) {
+                        Text("SAVE", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
                 }
-            },
-            confirmButton = { TextButton({ if (n.isNotBlank()) { vm.addCustomer(n, e, p); show = false } }) { Text("Save") } },
-            dismissButton = { TextButton({ show = false }) { Text("Cancel") } }
-        )
+            )
+        }
+    ) { pad ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(pad)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Customer Information", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { customerType = "Business" }) {
+                    RadioButton(selected = customerType == "Business", onClick = { customerType = "Business" })
+                    Text("Business")
+                }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { customerType = "Individual" }) {
+                    RadioButton(selected = customerType == "Individual", onClick = { customerType = "Individual" })
+                    Text("Individual")
+                }
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = salutation,
+                    onValueChange = { salutation = it },
+                    modifier = Modifier.width(110.dp),
+                    label = { Text("Salutation") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = firstName,
+                    onValueChange = { firstName = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("First Name") },
+                    singleLine = true
+                )
+            }
+
+            OutlinedTextField(
+                value = lastName,
+                onValueChange = { lastName = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Last Name") },
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = companyName,
+                onValueChange = { companyName = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Company Name") },
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = displayName,
+                onValueChange = { displayName = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Display Name *") },
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Email Address") },
+                singleLine = true
+            )
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = phonePrefix,
+                    onValueChange = { phonePrefix = it },
+                    modifier = Modifier.width(100.dp),
+                    label = { Text("Code") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Phone") },
+                    singleLine = true
+                )
+            }
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = mobilePrefix,
+                    onValueChange = { mobilePrefix = it },
+                    modifier = Modifier.width(100.dp),
+                    label = { Text("Code") },
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = mobile,
+                    onValueChange = { mobile = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Mobile") },
+                    singleLine = true
+                )
+            }
+
+            HorizontalDivider()
+
+            Text("Other Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+
+            OutlinedTextField(
+                value = currency,
+                onValueChange = { currency = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Currency *") },
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = paymentTerms,
+                onValueChange = { paymentTerms = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Payment Terms") },
+                singleLine = true
+            )
+
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Checkbox(checked = enablePortal, onCheckedChange = { enablePortal = it })
+                Text("Allow portal access for this customer")
+            }
+
+            OutlinedButton(onClick = { }, Modifier.fillMaxWidth()) {
+                Text("+ Add Billing & Shipping address")
+            }
+
+            OutlinedButton(onClick = { }, Modifier.fillMaxWidth()) {
+                Text("+ Add Contact Person")
+            }
+
+            OutlinedTextField(
+                value = remarks,
+                onValueChange = { remarks = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Remarks (For Internal Use)") },
+                singleLine = true
+            )
+        }
     }
 }
 

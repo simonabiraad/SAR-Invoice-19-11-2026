@@ -1,32 +1,22 @@
-# Implementation Plan - Navigation Drawer Sidebar Menu matching Reference Screenshot
+# Implementation Plan - Receivables/Payables Detail Bottom Sheet & Overdue Filters
 
-Recreate the exact Navigation Drawer sidebar menu from the reference screenshot within the Compose-based SAR Invoice application (`MainActivity.kt`).
+Implement the interactive Receivables & Payables detail bottom sheet (with Current vs Overdue breakdown and overdue split by days) and wire up Overdue Invoices and Overdue Bills navigation with filter tabs.
 
 ## User Review Required
 
-- **Sidebar Menu Items**:
-  - Profile Header (User Avatar / Icon, Name, Email)
-  - Home
-  - Items
-  - Banking
-  - Sales
-  - Purchases
-  - Time Tracking
-  - Accountant
-  - Documents
-  - Reports
-  - Settings
-  - Create a New Account
-- **Hamburger Toggle**:
-  - TopAppBar navigation icon (`☰`) opens the Navigation Drawer smoothly.
-  - Every menu item is fully functional, navigating to its corresponding screen or activity.
+- **Receivables & Payables Detail Bottom Sheet**:
+  - Tapping Total Receivables or Total Payables opens a bottom sheet with tabs for **TOTAL RECEIVABLES** and **TOTAL PAYABLES**.
+  - Displays total amount, Current vs Overdue split, and Overdue Split by days (1–15 Days, 16–30 Days, 31–45 Days, > 45 Days).
+- **Overdue Invoices & Bills Navigation**:
+  - Tapping Overdue Invoices opens the Invoices list with the **Overdue** filter tab selected.
+  - Tapping Overdue Bills opens the Bills list with the **Overdue** filter tab selected.
 
 ## Proposed Changes
 
 ### 1. `MainActivity.kt`
-- Wrap `Scaffold` inside Material 3 `ModalNavigationDrawer` and `ModalDrawerSheet`.
-- Add hamburger menu icon to `TopAppBar`.
-- Build profile header and all navigation drawer items matching Screenshot 1.
+- Create `ReceivablesPayablesBottomSheet` composable.
+- Update `SummaryCardsSection` click listeners to open the bottom sheet or navigate to Overdue Invoices/Bills.
+- Update `Invoices` and `Bills` screens to support All, Unpaid, and Overdue filter tabs.
 
 ## Verification Plan
 
@@ -35,4 +25,4 @@ Recreate the exact Navigation Drawer sidebar menu from the reference screenshot 
 - Unit tests: `gradle_build("app:testDebugUnitTest")`
 
 ### Manual Verification
-- Test opening the sidebar menu, verifying profile details, and testing navigation for every menu option.
+- Test tapping Total Receivables/Payables to open the breakdown sheet, and tapping Overdue Invoices/Bills to view filtered lists.
