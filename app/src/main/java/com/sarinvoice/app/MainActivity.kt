@@ -483,19 +483,24 @@ fun SummaryCardsSection(vm: AppVM, nav: NavHostController, onOpenReceivables: ()
 @Composable
 fun ReceivablesPayablesBottomSheet(vm: AppVM, initialTab: Int, onDismiss: () -> Unit) {
     var tabIndex by remember { mutableStateOf(initialTab) } // 0: Receivables, 1: Payables
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val inv = vm.db.invoices
     val bills = vm.db.bills
 
     val totalReceivables = inv.filter { !it.paid }.sumOf { it.total }
     val totalPayables = bills.filter { !it.paid }.sumOf { it.amount }
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
         Column(
             Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .wrapContentHeight()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceAround) {
                 TextButton(onClick = { tabIndex = 0 }) {
@@ -524,9 +529,9 @@ fun ReceivablesPayablesBottomSheet(vm: AppVM, initialTab: Int, onDismiss: () -> 
                     Spacer(Modifier.height(4.dp))
                     Text(sar(if (tabIndex == 0) totalReceivables else totalPayables), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
                 HorizontalDivider()
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(12.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                     Column {
                         Text("Current", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF2196F3), fontWeight = FontWeight.Bold)
@@ -551,7 +556,7 @@ fun ReceivablesPayablesBottomSheet(vm: AppVM, initialTab: Int, onDismiss: () -> 
                     OverdueSplitCard("> 45 Days", sar(0.0), Modifier.weight(1f))
                 }
             }
-            Spacer(Modifier.height(32.dp))
+            Spacer(Modifier.height(16.dp))
         }
     }
 }
