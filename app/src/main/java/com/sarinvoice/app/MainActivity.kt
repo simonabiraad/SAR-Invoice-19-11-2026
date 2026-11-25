@@ -1,6 +1,9 @@
 package com.sarinvoice.app
 
 import android.content.Intent
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
+import android.widget.Toast
 import android.graphics.Color as AColor
 import android.os.Bundle
 import kotlinx.coroutines.launch
@@ -248,6 +251,8 @@ fun App(vm: AppVM, dark: Boolean) {
                 composable("inv/{id}") { Detail(vm, nav, it.arguments?.getString("id") ?: "") }
                 composable("record_expense") { RecordExpenseScreen(vm, nav) }
                 composable("new_customer") { NewCustomerScreen(vm, nav) }
+                composable("address_screen") { AddressScreen(nav) }
+                composable("contact_person_screen") { ContactPersonScreen(nav) }
             }
         }
     }
@@ -740,6 +745,7 @@ fun Dashboard(vm: AppVM, nav: NavHostController) {
     var selectedTopTab by rememberSaveable { mutableIntStateOf(0) } // 0: Dashboard, 1: Announcements, 2: Help
     var showNewBill by remember { mutableStateOf(false) }
     var showNewCustomer by remember { mutableStateOf(false) }
+    var showWidgetSheet by remember { mutableStateOf(false) }
     var showLogTime by remember { mutableStateOf(false) }
     var showFiscalSheet by remember { mutableStateOf(false) }
     var showReceivablesSheet by remember { mutableStateOf(false) }
@@ -789,6 +795,11 @@ fun Dashboard(vm: AppVM, nav: NavHostController) {
                             onOpenOverdueInvoices = { nav.navigate("invoices?filter=2") },
                             onOpenOverdueBills = { nav.navigate("invoices?filter=2") }
                         )
+                    }
+
+                    // Add Widget Banner matching Reference Image 1
+                    item {
+                        WidgetBanner(onOpenWidgetSheet = { showWidgetSheet = true })
                     }
 
                     // Quick Create Section
@@ -979,6 +990,10 @@ fun Dashboard(vm: AppVM, nav: NavHostController) {
 
     if (showReceivablesSheet) {
         ReceivablesPayablesBottomSheet(vm, receivablesInitialTab) { showReceivablesSheet = false }
+    }
+
+    if (showWidgetSheet) {
+        WidgetSelectionBottomSheet(vm) { showWidgetSheet = false }
     }
 
     // Dialogs
@@ -1364,7 +1379,7 @@ fun NewInvoice(vm: AppVM, nav: NavHostController) {
     var price by rememberSaveable { mutableStateOf("") }
     val rate = vm.db.business.vatRate
     val sub = lines.sumOf { it.total }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("New invoice", style = MaterialTheme.typography.titleLarge)
         OutlinedTextField(customer, { customer = it }, Modifier.fillMaxWidth(), label = { Text("Customer") }, singleLine = true)
         if (vm.db.customers.isNotEmpty()) LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1470,10 +1485,16 @@ fun NewCustomerScreen(vm: AppVM, nav: NavHostController) {
     var phone by remember { mutableStateOf("") }
     var mobilePrefix by remember { mutableStateOf("+961") }
     var mobile by remember { mutableStateOf("") }
-    var currency by remember { mutableStateOf("SAR") }
-    var paymentTerms by remember { mutableStateOf("") }
+    var currency by remember { mutableStateOf("USD- United States Dollar") }
+    var paymentTerms by remember { mutableStateOf("Net 60") }
     var enablePortal by remember { mutableStateOf(false) }
     var remarks by remember { mutableStateOf("") }
+
+    var taxRate by remember { mutableStateOf("") }
+    var companyId by remember { mutableStateOf("") }
+    var accountsReceivable by remember { mutableStateOf("") }
+    var openingBalance by remember { mutableStateOf("") }
+    var portalLanguage by remember { mutableStateOf("English") }
 
     Scaffold(
         topBar = {
@@ -1483,6 +1504,7 @@ fun NewCustomerScreen(vm: AppVM, nav: NavHostController) {
                     IconButton({ nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 },
                 actions = {
+                    IconButton(onClick = {}) { Icon(Icons.Default.AccountBox, "Contact") }
                     TextButton(onClick = {
                         val name = displayName.ifBlank { companyName.ifBlank { "$firstName $lastName".trim() } }
                         if (name.isNotBlank()) {
@@ -1515,8 +1537,8 @@ fun NewCustomerScreen(vm: AppVM, nav: NavHostController) {
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(pad)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text("Customer Information", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
 
@@ -1619,10 +1641,59 @@ fun NewCustomerScreen(vm: AppVM, nav: NavHostController) {
             Text("Other Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
 
             OutlinedTextField(
+                value = taxRate,
+                onValueChange = { taxRate = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Tax Rate") },
+                placeholder = { Text("Select a Tax") },
+                singleLine = true
+            )
+            Text(
+                "To associate more than one tax, you need to create a tax group in Settings.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedTextField(
+                    value = companyId,
+                    onValueChange = { companyId = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Company ID") },
+                    singleLine = true
+                )
+                Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+            }
+
+            OutlinedTextField(
                 value = currency,
                 onValueChange = { currency = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Currency *") },
+                trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = accountsReceivable,
+                onValueChange = { accountsReceivable = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Accounts Receivable") },
+                placeholder = { Text("Select a Accounts Receivable") },
+                trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
+                singleLine = true
+            )
+
+            OutlinedTextField(
+                value = openingBalance,
+                onValueChange = { openingBalance = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text("Opening Balance") },
+                leadingIcon = {
+                    Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = Modifier.padding(4.dp)) {
+                        Text("USD", modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
+                },
                 singleLine = true
             )
 
@@ -1631,9 +1702,14 @@ fun NewCustomerScreen(vm: AppVM, nav: NavHostController) {
                 onValueChange = { paymentTerms = it },
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text("Payment Terms") },
+                trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
                 singleLine = true
             )
 
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Enable Portal?", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+                Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            }
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -1643,12 +1719,32 @@ fun NewCustomerScreen(vm: AppVM, nav: NavHostController) {
                 Text("Allow portal access for this customer")
             }
 
-            OutlinedButton(onClick = { }, Modifier.fillMaxWidth()) {
-                Text("+ Add Billing & Shipping address")
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                OutlinedTextField(
+                    value = portalLanguage,
+                    onValueChange = { portalLanguage = it },
+                    modifier = Modifier.weight(1f),
+                    label = { Text("Portal Language") },
+                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, null) },
+                    singleLine = true
+                )
+                Icon(Icons.Default.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
             }
 
-            OutlinedButton(onClick = { }, Modifier.fillMaxWidth()) {
-                Text("+ Add Contact Person")
+            TextButton(onClick = { }) {
+                Text("Add Website & Social", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+            }
+
+            OutlinedButton(onClick = { nav.navigate("address_screen") }, Modifier.fillMaxWidth().height(52.dp)) {
+                Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(8.dp))
+                Text("+ Add Billing & Shipping address", fontWeight = FontWeight.Bold)
+            }
+
+            OutlinedButton(onClick = { nav.navigate("contact_person_screen") }, Modifier.fillMaxWidth().height(52.dp)) {
+                Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(8.dp))
+                Text("+ Add Contact Person", fontWeight = FontWeight.Bold)
             }
 
             OutlinedTextField(
@@ -1701,6 +1797,120 @@ fun Fab(modifier: Modifier, onClick: () -> Unit) = FloatingActionButton(
 ) { Icon(Icons.Default.Add, "Add") }
 
 @Composable
+fun WidgetBanner(onOpenWidgetSheet: () -> Unit) {
+    Surface(
+        onClick = onOpenWidgetSheet,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = Color(0xFFFFECB3),
+        border = BorderStroke(1.dp, Color(0xFFFFD54F))
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Add Widget to your Home Screen", fontWeight = FontWeight.Bold, color = Color(0xFF5D4037))
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = Color(0xFFFF7043)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text("New", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                    Icon(Icons.Default.ChevronRight, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun WidgetSelectionBottomSheet(vm: AppVM, onDismiss: () -> Unit) {
+    val ctx = LocalContext.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val totalReceivables = vm.db.invoices.filter { !it.paid }.sumOf { it.total }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .wrapContentHeight()
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text("Total Receivables", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Get a quick overview of your business's receivables.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Spacer(Modifier.height(8.dp))
+
+            Panel {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("SAR Invoice", fontWeight = FontWeight.Bold)
+                    Icon(Icons.Default.Refresh, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Spacer(Modifier.height(8.dp))
+                Text("Total Receivables: ${sar(totalReceivables)}", fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(12.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text("CURRENT", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            Text(sar(totalReceivables), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    Surface(
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Column(Modifier.padding(12.dp)) {
+                            Text("OVERDUE", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                            Text(sar(0.0), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Button(
+                onClick = {
+                    val appWidgetManager = AppWidgetManager.getInstance(ctx)
+                    val myWidget = ComponentName(ctx, SarInvoiceWidgetProvider::class.java)
+                    if (appWidgetManager.isRequestPinAppWidgetSupported) {
+                        appWidgetManager.requestPinAppWidget(myWidget, null, null)
+                        Toast.makeText(ctx, "Widget pin requested!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(ctx, "Widget pinning not supported on this device", Toast.LENGTH_SHORT).show()
+                    }
+                    onDismiss()
+                },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Icon(Icons.Default.Add, null)
+                Spacer(Modifier.width(8.dp))
+                Text("+ Add Widget", fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
 fun Settings(vm: AppVM, dark: Boolean) {
     val ctx = LocalContext.current
     val b = vm.db.business
@@ -1731,6 +1941,200 @@ fun Settings(vm: AppVM, dark: Boolean) {
             OutlinedTextField(rate, { rate = it }, Modifier.fillMaxWidth(), label = { Text("VAT rate %") }, singleLine = true)
             Spacer(Modifier.height(8.dp))
             Button({ vm.saveBusiness(Business(name.ifBlank { "My Company" }, vat, rate.toDoubleOrNull() ?: 15.0)) }) { Text("Save") }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddressScreen(nav: NavHostController) {
+    var billAttention by remember { mutableStateOf("") }
+    var billCountry by remember { mutableStateOf("") }
+    var billStreet1 by remember { mutableStateOf("") }
+    var billStreet2 by remember { mutableStateOf("") }
+    var billCity by remember { mutableStateOf("") }
+    var billState by remember { mutableStateOf("") }
+    var billZip by remember { mutableStateOf("") }
+    var billFax by remember { mutableStateOf("") }
+    var billPhonePrefix by remember { mutableStateOf("+961") }
+    var billPhone by remember { mutableStateOf("") }
+
+    var shipAttention by remember { mutableStateOf("") }
+    var shipCountry by remember { mutableStateOf("") }
+    var shipStreet1 by remember { mutableStateOf("") }
+    var shipStreet2 by remember { mutableStateOf("") }
+    var shipCity by remember { mutableStateOf("") }
+    var shipState by remember { mutableStateOf("") }
+    var shipZip by remember { mutableStateOf("") }
+    var shipFax by remember { mutableStateOf("") }
+    var shipPhonePrefix by remember { mutableStateOf("+961") }
+    var shipPhone by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Address", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton({ nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                },
+                actions = {
+                    TextButton(onClick = { nav.popBackStack() }) {
+                        Text("SAVE", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            )
+        }
+    ) { pad ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(pad)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Panel {
+                Text("Billing Address", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(billAttention, { billAttention = it }, Modifier.fillMaxWidth(), label = { Text("Attention") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(billCountry, { billCountry = it }, Modifier.fillMaxWidth(), label = { Text("Country/Region") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(billStreet1, { billStreet1 = it }, Modifier.fillMaxWidth(), label = { Text("Street 1") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(billStreet2, { billStreet2 = it }, Modifier.fillMaxWidth(), label = { Text("Street 2") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(billCity, { billCity = it }, Modifier.fillMaxWidth(), label = { Text("City") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(billState, { billState = it }, Modifier.fillMaxWidth(), label = { Text("State") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(billZip, { billZip = it }, Modifier.fillMaxWidth(), label = { Text("Zip Code") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(billFax, { billFax = it }, Modifier.fillMaxWidth(), label = { Text("Fax") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(billPhonePrefix, { billPhonePrefix = it }, Modifier.width(100.dp), label = { Text("Code") }, singleLine = true)
+                    OutlinedTextField(billPhone, { billPhone = it }, Modifier.weight(1f), label = { Text("Phone") }, singleLine = true)
+                }
+            }
+
+            Panel {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("Shipping Address", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    TextButton(onClick = {
+                        shipAttention = billAttention
+                        shipCountry = billCountry
+                        shipStreet1 = billStreet1
+                        shipStreet2 = billStreet2
+                        shipCity = billCity
+                        shipState = billState
+                        shipZip = billZip
+                        shipFax = billFax
+                        shipPhonePrefix = billPhonePrefix
+                        shipPhone = billPhone
+                    }) {
+                        Text("Copy Billing Address", fontWeight = FontWeight.Bold)
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(shipAttention, { shipAttention = it }, Modifier.fillMaxWidth(), label = { Text("Attention") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(shipCountry, { shipCountry = it }, Modifier.fillMaxWidth(), label = { Text("Country/Region") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(shipStreet1, { shipStreet1 = it }, Modifier.fillMaxWidth(), label = { Text("Street 1") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(shipStreet2, { shipStreet2 = it }, Modifier.fillMaxWidth(), label = { Text("Street 2") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(shipCity, { shipCity = it }, Modifier.fillMaxWidth(), label = { Text("City") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(shipState, { shipState = it }, Modifier.fillMaxWidth(), label = { Text("State") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(shipZip, { shipZip = it }, Modifier.fillMaxWidth(), label = { Text("Zip Code") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(shipFax, { shipFax = it }, Modifier.fillMaxWidth(), label = { Text("Fax") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(shipPhonePrefix, { shipPhonePrefix = it }, Modifier.width(100.dp), label = { Text("Code") }, singleLine = true)
+                    OutlinedTextField(shipPhone, { shipPhone = it }, Modifier.weight(1f), label = { Text("Phone") }, singleLine = true)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ContactPersonScreen(nav: NavHostController) {
+    var salutation by remember { mutableStateOf("") }
+    var firstName by remember { mutableStateOf("") }
+    var lastName by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var workPhonePrefix by remember { mutableStateOf("+961") }
+    var workPhone by remember { mutableStateOf("") }
+    var mobilePrefix by remember { mutableStateOf("+961") }
+    var mobile by remember { mutableStateOf("") }
+    var designation by remember { mutableStateOf("") }
+    var department by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Add Contact Person", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton({ nav.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
+                },
+                actions = {
+                    IconButton(onClick = {}) { Icon(Icons.Default.AccountBox, "Contact") }
+                    TextButton(onClick = { nav.popBackStack() }) {
+                        Text("SAVE", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            )
+        }
+    ) { pad ->
+        Column(
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(pad)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Panel {
+                Text("Contact Person", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(salutation, { salutation = it }, Modifier.width(110.dp), label = { Text("Salutation") }, singleLine = true)
+                    OutlinedTextField(firstName, { firstName = it }, Modifier.weight(1f), label = { Text("First Name") }, singleLine = true)
+                }
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(lastName, { lastName = it }, Modifier.fillMaxWidth(), label = { Text("Last Name") }, singleLine = true)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("Email") }, singleLine = true)
+            }
+
+            Panel {
+                Text("Contact Phone", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(workPhonePrefix, { workPhonePrefix = it }, Modifier.width(100.dp), label = { Text("Code") }, singleLine = true)
+                    OutlinedTextField(workPhone, { workPhone = it }, Modifier.weight(1f), label = { Text("Work Phone") }, singleLine = true)
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(mobilePrefix, { mobilePrefix = it }, Modifier.width(100.dp), label = { Text("Code") }, singleLine = true)
+                    OutlinedTextField(mobile, { mobile = it }, Modifier.weight(1f), label = { Text("Mobile") }, singleLine = true)
+                }
+            }
+
+            Panel {
+                Text("Other Details", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.height(8.dp))
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(designation, { designation = it }, Modifier.weight(1f), label = { Text("Designation") }, singleLine = true)
+                    OutlinedTextField(department, { department = it }, Modifier.weight(1f), label = { Text("Department") }, singleLine = true)
+                }
+            }
         }
     }
 }

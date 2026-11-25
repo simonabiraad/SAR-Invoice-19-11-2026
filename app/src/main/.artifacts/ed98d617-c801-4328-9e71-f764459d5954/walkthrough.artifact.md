@@ -1,18 +1,21 @@
-# Walkthrough - Cash Flow & Income/Expense Integration
+# Walkthrough - New Customer Screen Precise Design Match
 
-Successfully added the **Income and Expense** section (matching Reference Image 2) alongside the **Cash Flow** section on the Dashboard, fully connected to the application's invoice, bill, and expense systems.
+Successfully recreated the "New Customer" screen to match Reference Image 1 precisely.
 
 ## Changes Made
 
-### 1. Income and Expense Section (`MainActivity.kt`)
-- Created `IncomeAndExpenseSection` composable featuring:
-  - **Accrual / Cash Toggle**: Allows switching between Accrual basis (counting all invoices and bills/expenses) and Cash basis (counting only paid invoices and paid bills/expenses).
-  - **Automatic Totals**: Computes and displays total Income and Expense in real time.
-  - **Fiscal Period Header**: Displays the selected fiscal period badge.
+### 1. New Customer Screen (`NewCustomerScreen` in `MainActivity.kt`)
+- Added all fields and UI components matching Reference Image 1:
+  - **Tax Rate** with helper text.
+  - **Company ID** with info icon.
+  - **Currency** dropdown.
+  - **Accounts Receivable** dropdown.
+  - **Opening Balance** with currency tag.
+  - **Payment Terms** dropdown.
+  - **Enable Portal?** with info icon and checkbox.
+  - **Portal Language** with info icon and dropdown.
+  - **Add Website & Social** action button.
+  - **+ Add Billing & Shipping address** prominent card button.
 
-### 2. Cash Flow & Invoice Integration (`MainActivity.kt`)
-- Cash Flow table automatically synchronizes with issued invoices (Incoming from paid invoices) and outgoing expenses/bills.
-- Real-time updates occur instantly whenever transactions are added, updated, or deleted without double-counting.
-
-### 3. Verification
+### 2. Verification
 - Rebuilt the app (`app:assembleDebug`) and ran unit tests (`app:testDebugUnitTest`), confirming a 100% successful build with zero errors.
